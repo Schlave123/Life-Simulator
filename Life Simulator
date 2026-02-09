@@ -1,0 +1,236 @@
+import pygame
+import random
+import sys
+
+pygame.init()
+pygame.mixer.init()
+
+
+
+# ------------------ SCREEN ------------------
+WIDTH, HEIGHT = 1920, 1080
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Life Simulator")
+
+FONT = pygame.font.SysFont("arial", 22)
+BIG_FONT = pygame.font.SysFont("arial", 36)
+
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GREEN = (0, 200, 0)
+RED = (200, 0, 0)
+
+clock = pygame.time.Clock()
+
+# ------------------ PLAYER ------------------
+player = {
+    "age": 1,
+    "money": 0,
+    "health": 100,
+    "happiness": 50,
+    "relationship": 0,
+    "criminal": 0,
+    "alive": True
+}
+
+# ------------------ DISEASES ------------------
+diseases = [
+    # Childhood
+    {"name": "Common Cold", "chance": 0.12, "damage": 3, "min_age": 1},
+    {"name": "Flu", "chance": 0.08, "damage": 8, "min_age": 1},
+    {"name": "Chickenpox", "chance": 0.04, "damage": 12, "min_age": 1},
+    {"name": "Asthma Attack", "chance": 0.02, "damage": 18, "min_age": 1},
+
+    # Teen / Adult
+    {"name": "Food Poisoning", "chance": 0.04, "damage": 10, "min_age": 13},
+    {"name": "Bronchitis", "chance": 0.03, "damage": 15, "min_age": 13},
+    {"name": "Pneumonia", "chance": 0.025, "damage": 25, "min_age": 13},
+    {"name": "Depression", "chance": 0.02, "damage": 6, "min_age": 13},
+
+    # Serious adult
+    {"name": "Diabetes", "chance": 0.015, "damage": 12, "min_age": 18},
+    {"name": "High Blood Pressure", "chance": 0.02, "damage": 10, "min_age": 18},
+    {"name": "Kidney Failure", "chance": 0.01, "damage": 35, "min_age": 18},
+    {"name": "Liver Failure", "chance": 0.008, "damage": 40, "min_age": 18},
+
+    # Old age
+    {"name": "Stroke", "chance": 0.01, "damage": 50, "min_age": 50},
+    {"name": "Heart Disease", "chance": 0.015, "damage": 45, "min_age": 50},
+    {"name": "Alzheimer's Disease", "chance": 0.01, "damage": 20, "min_age": 60},
+    {"name": "Parkinson's Disease", "chance": 0.008, "damage": 18, "min_age": 60},
+
+    # Deadly
+    {"name": "Cancer", "chance": 0.006, "damage": 60, "min_age": 25},
+    {"name": "Sepsis", "chance": 0.004, "damage": 70, "min_age": 18},
+    {"name": "Heart Attack", "chance": 0.005, "damage": 100, "min_age": 40}
+]
+
+# ------------------ EVENTS ------------------
+def get_events():
+    if player["age"] < 13:
+        return ["Play", "Eat", "See Doctor", "Do Nothing"]
+    elif player["age"] < 18:
+        return ["Study", "Hang Out", "See Doctor", "Do Nothing"]
+    else:
+        return ["Work", "Date", "Crime", "Casino", "See Doctor", "Do Nothing"]
+
+# ------------------ FUNCTIONS ------------------
+def draw_stats():
+    stats = [
+        f"Age: {player['age']}",
+        f"Health: {player['health']}",
+        f"Money: ${player['money']}",
+        f"Happiness: {player['happiness']}",
+        f"Relationship: {player['relationship']}",
+        f"Criminal Record: {player['criminal']}"
+    ]
+    for i, s in enumerate(stats):
+        screen.blit(FONT.render(s, True, WHITE), (20, 20 + i * 30))
+
+def check_disease():
+    for d in diseases:
+        if player["age"] >= d["min_age"]:
+            if random.random() < d["chance"]:
+                player["health"] -= d["damage"]
+                return f"You were diagnosed with {d['name']} (-{d['damage']} health)."
+    return ""
+
+def age_and_death_check():
+    # Natural aging
+    if player["age"] > 50:
+        player["health"] -= random.randint(0, 2)
+
+    # Old age death
+    if player["age"] >= 75:
+        chance = (player["age"] - 74) * 0.02
+        if random.random() < chance:
+            player["alive"] = False
+            return "You passed away peacefully due to old age."
+
+    # Health death
+    if player["health"] <= 0:
+        player["alive"] = False
+        return "You died due to severe health complications."
+
+    return ""
+
+def handle_action(action):
+    if not player["alive"]:
+        return "You are dead."
+
+    msg = ""
+
+    # --- ACTIONS ---
+    if action == "Play":
+        player["happiness"] += 5
+        msg = "You played and had fun."
+
+    elif action == "Eat":
+        player["health"] = min(100, player["health"] + 5)
+        msg = "You ate well. Health improved."
+
+    elif action == "Study":
+        player["happiness"] -= 2
+        msg = "You studied hard."
+
+    elif action == "Hang Out":
+        player["happiness"] += 5
+        msg = "You hung out with friends."
+
+    elif action == "Work":
+        money = random.randint(50, 200)
+        player["money"] += money
+        player["happiness"] -= 2
+        msg = f"You worked and earned ${money}."
+
+    elif action == "Date":
+        if random.random() < 0.6:
+            player["relationship"] += 10
+            msg = "Your date went great!"
+        else:
+            player["relationship"] -= 5
+            msg = "Your date went badly."
+
+    elif action == "Crime":
+        if random.random() < 0.5:
+            stolen = random.randint(100, 800)
+            player["money"] += stolen
+            player["criminal"] += 1
+            msg = f"You committed a crime and stole ${stolen}."
+        else:
+            player["criminal"] += 1
+            player["happiness"] -= 10
+            msg = "You were caught committing a crime."
+
+    elif action == "Casino":
+        gamble = random.randint(50, 300)
+        if random.random() < 0.5:
+            player["money"] += gamble
+            msg = f"You won ${gamble} gambling!"
+        else:
+            player["money"] -= gamble
+            msg = f"You lost ${gamble} gambling."
+
+    elif action == "See Doctor":
+        cost = random.randint(50, 200)
+        if player["money"] >= cost:
+            heal = random.randint(15, 50)
+            player["money"] -= cost
+            player["health"] = min(100, player["health"] + heal)
+            msg = f"Doctor treated you (+{heal} health)."
+        else:
+            msg = "You couldn't afford medical care."
+
+    elif action == "Do Nothing":
+        player["happiness"] -= 1
+        player["health"] -= 1
+        msg = "You wasted the year."
+
+    # --- YEAR PASSES ---
+    player["age"] += 1
+
+    disease_msg = check_disease()
+    death_msg = age_and_death_check()
+
+    if disease_msg:
+        msg += " " + disease_msg
+    if death_msg:
+        msg += " " + death_msg
+
+    return msg
+
+def draw_buttons():
+    buttons = []
+    events = get_events()
+    for i, e in enumerate(events):
+        rect = pygame.Rect(520, 60 + i * 70, 380, 50)
+        pygame.draw.rect(screen, GREEN, rect)
+        screen.blit(FONT.render(e, True, BLACK), (rect.x + 10, rect.y + 10))
+        buttons.append((rect, e))
+    return buttons
+
+# ------------------ MAIN LOOP ------------------
+message = "You were born."
+
+running = True
+while running:
+    screen.fill(BLACK)
+    draw_stats()
+    buttons = draw_buttons()
+
+    # Message
+    screen.blit(FONT.render(message, True, WHITE), (20, 430))
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            for rect, action in buttons:
+                if rect.collidepoint(event.pos):
+                    message = handle_action(action)
+
+    pygame.display.flip()
+    clock.tick(30)
+
+pygame.quit()
+sys.exit()
